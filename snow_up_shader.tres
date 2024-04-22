@@ -1,0 +1,156 @@
+[gd_resource type="VisualShader" load_steps=12 format=3 uid="uid://d2h6aepqiofjb"]
+
+[sub_resource type="VisualShaderNodeTransformVecMult" id="VisualShaderNodeTransformVecMult_54plk"]
+operator = 2
+
+[sub_resource type="VisualShaderNodeInput" id="VisualShaderNodeInput_51mrj"]
+input_name = "inv_view_matrix"
+
+[sub_resource type="VisualShaderNodeDotProduct" id="VisualShaderNodeDotProduct_ro10w"]
+default_input_values = [0, Vector3(0, 0, 0), 1, Vector3(-0.2, 1, -0.2)]
+
+[sub_resource type="VisualShaderNodeTextureParameterTriplanar" id="VisualShaderNodeTextureParameterTriplanar_gc7vb"]
+parameter_name = "DefaultTriplanarNormal"
+texture_type = 2
+
+[sub_resource type="VisualShaderNodeTextureParameterTriplanar" id="VisualShaderNodeTextureParameterTriplanar_2tjbx"]
+parameter_name = "SnowTriplanarNormal"
+texture_type = 2
+
+[sub_resource type="VisualShaderNodeMix" id="VisualShaderNodeMix_s334v"]
+default_input_values = [0, Vector3(0, 0, 0), 1, Vector3(1, 1, 1), 2, 0.5]
+op_type = 4
+
+[sub_resource type="VisualShaderNodeMix" id="VisualShaderNodeMix_n7ebh"]
+default_input_values = [0, Vector3(0, 0, 0), 1, Vector3(1, 1, 1), 2, 0.5]
+op_type = 4
+
+[sub_resource type="VisualShaderNodeVectorOp" id="VisualShaderNodeVectorOp_wgj8s"]
+operator = 6
+
+[sub_resource type="VisualShaderNodeTextureParameterTriplanar" id="VisualShaderNodeTextureParameterTriplanar_tbum2"]
+parameter_name = "DefaultTriplanar"
+texture_type = 1
+
+[sub_resource type="VisualShaderNodeTextureParameterTriplanar" id="VisualShaderNodeTextureParameterTriplanar_o3iww"]
+parameter_name = "SnowTriplanar"
+texture_type = 1
+
+[sub_resource type="VisualShaderNodeInput" id="VisualShaderNodeInput_kdk4d"]
+input_name = "normal"
+
+[resource]
+code = "shader_type spatial;
+render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_lambert, specular_schlick_ggx, world_vertex_coords;
+
+uniform sampler2D DefaultTriplanar : source_color;
+uniform sampler2D SnowTriplanar : source_color;
+uniform sampler2D DefaultTriplanarNormal : hint_normal;
+uniform sampler2D SnowTriplanarNormal : hint_normal;
+
+
+// TextureParameterTriplanar
+	vec4 triplanar_texture(sampler2D p_sampler, vec3 p_weights, vec3 p_triplanar_pos) {
+		vec4 samp = vec4(0.0);
+		samp += texture(p_sampler, p_triplanar_pos.xy) * p_weights.z;
+		samp += texture(p_sampler, p_triplanar_pos.xz) * p_weights.y;
+		samp += texture(p_sampler, p_triplanar_pos.zy * vec2(-1.0, 1.0)) * p_weights.x;
+		return samp;
+	}
+
+	uniform vec3 triplanar_scale = vec3(1.0, 1.0, 1.0);
+	uniform vec3 triplanar_offset;
+	uniform float triplanar_sharpness = 0.5;
+
+	varying vec3 triplanar_power_normal;
+	varying vec3 triplanar_pos;
+
+void vertex() {
+// TextureParameterTriplanar
+	{
+		triplanar_power_normal = pow(abs(NORMAL), vec3(triplanar_sharpness));
+		triplanar_power_normal /= dot(triplanar_power_normal, vec3(1.0));
+		triplanar_pos = VERTEX * triplanar_scale + triplanar_offset;
+		triplanar_pos *= vec3(1.0, -1.0, 1.0);
+	}
+}
+
+void fragment() {
+// TextureParameterTriplanar:5
+	vec4 n_out5p0 = triplanar_texture(DefaultTriplanar, triplanar_power_normal, triplanar_pos);
+
+
+// TextureParameterTriplanar:6
+	vec4 n_out6p0 = triplanar_texture(SnowTriplanar, triplanar_power_normal, triplanar_pos);
+
+
+// Input:12
+	mat4 n_out12p0 = INV_VIEW_MATRIX;
+
+
+// Input:8
+	vec3 n_out8p0 = NORMAL;
+
+
+// TransformVectorMult:11
+	vec3 n_out11p0 = (n_out12p0 * vec4(n_out8p0, 0.0)).xyz;
+
+
+// DotProduct:13
+	vec3 n_in13p1 = vec3(-0.20000, 1.00000, -0.20000);
+	float n_out13p0 = dot(n_out11p0, n_in13p1);
+
+
+// Mix:18
+	vec3 n_out18p0 = mix(vec3(n_out5p0.xyz), vec3(n_out6p0.xyz), n_out13p0);
+
+
+// VectorOp:20
+	vec3 n_out20p0 = max(vec3(n_out5p0.xyz), n_out18p0);
+
+
+// TextureParameterTriplanar:15
+	vec4 n_out15p0 = triplanar_texture(DefaultTriplanarNormal, triplanar_power_normal, triplanar_pos);
+
+
+// TextureParameterTriplanar:16
+	vec4 n_out16p0 = triplanar_texture(SnowTriplanarNormal, triplanar_power_normal, triplanar_pos);
+
+
+// Mix:19
+	vec3 n_out19p0 = mix(vec3(n_out15p0.xyz), vec3(n_out16p0.xyz), n_out13p0);
+
+
+// Output:0
+	ALBEDO = n_out20p0;
+	NORMAL_MAP = n_out19p0;
+
+
+}
+"
+graph_offset = Vector2(-1121.15, -12.4292)
+flags/world_vertex_coords = true
+nodes/fragment/0/position = Vector2(400, 520)
+nodes/fragment/5/node = SubResource("VisualShaderNodeTextureParameterTriplanar_tbum2")
+nodes/fragment/5/position = Vector2(-1020, 60)
+nodes/fragment/6/node = SubResource("VisualShaderNodeTextureParameterTriplanar_o3iww")
+nodes/fragment/6/position = Vector2(-1020, 400)
+nodes/fragment/8/node = SubResource("VisualShaderNodeInput_kdk4d")
+nodes/fragment/8/position = Vector2(-1560, 820)
+nodes/fragment/11/node = SubResource("VisualShaderNodeTransformVecMult_54plk")
+nodes/fragment/11/position = Vector2(-1200, 720)
+nodes/fragment/12/node = SubResource("VisualShaderNodeInput_51mrj")
+nodes/fragment/12/position = Vector2(-1520, 680)
+nodes/fragment/13/node = SubResource("VisualShaderNodeDotProduct_ro10w")
+nodes/fragment/13/position = Vector2(-880, 740)
+nodes/fragment/15/node = SubResource("VisualShaderNodeTextureParameterTriplanar_gc7vb")
+nodes/fragment/15/position = Vector2(-1040, 860)
+nodes/fragment/16/node = SubResource("VisualShaderNodeTextureParameterTriplanar_2tjbx")
+nodes/fragment/16/position = Vector2(-1040, 1160)
+nodes/fragment/18/node = SubResource("VisualShaderNodeMix_s334v")
+nodes/fragment/18/position = Vector2(-200, 440)
+nodes/fragment/19/node = SubResource("VisualShaderNodeMix_n7ebh")
+nodes/fragment/19/position = Vector2(-200, 680)
+nodes/fragment/20/node = SubResource("VisualShaderNodeVectorOp_wgj8s")
+nodes/fragment/20/position = Vector2(60, 120)
+nodes/fragment/connections = PackedInt32Array(8, 0, 11, 1, 11, 0, 13, 0, 5, 0, 18, 0, 6, 0, 18, 1, 13, 0, 18, 2, 15, 0, 19, 0, 16, 0, 19, 1, 13, 0, 19, 2, 12, 0, 11, 0, 5, 0, 20, 0, 18, 0, 20, 1, 20, 0, 0, 0, 19, 0, 0, 9)
